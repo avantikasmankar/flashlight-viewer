@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Removal + Glow Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Page system */
+        .page {
+            min-height: 100vh;
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* ============ PAGE 1: EDITOR STYLES ============ */
+        .editor-page {
+            padding: 20px;
+        }
+
+        .editor-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .editor-title {
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .upload-area {
+            border: 2px dashed #4ecdc4;
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #ff6b6b;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: #45b7d1;
+            background: rgba(69, 183, 209, 0.2);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+
+        .editor-section {
+            display: flex;
+            gap: 30px;
+            margin: 30px 0;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        #editorCanvas {
+            border: 2px solid #4ecdc4;
+            border-radius: 10px;
+            cursor: crosshair;
+            max-width: 500px;
+            max-height: 500px;
+        }
+
+        .tools-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            min-width: 250px;
+        }
+
+        .tool-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tool-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .tool-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            color: #4ecdc4;
+        }
+
+        .tool-button {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .tool-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.3);
+        }
+
+        .tool-button.active {
+            background: linear-gradient(45deg, #45b7d1, #ff6b6b);
+            box-shadow: 0 0 20px rgba(69, 183, 209, 0.5);
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .slider-container label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .slider-container input {
+            width: 100%;
+        }
+
+        .download-btn {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #4ecdc4, #45b7d1);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+        }
+
+        .preview-btn {
+            padding: 15px 30px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2em;
+            margin: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .preview-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255, 107, 107, 0.5);
+        }
+
+        .glow-controls {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px auto;
+            backdrop-filter: blur(10px);
+            max-width: 800px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            text-align: center;
+        }
+
+        .color-input {
+            width: 50px;
+            height: 35px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .color-input:hover {
+            transform: scale(1.1);
+        }
+
+        .range-input {
+            width: 120px;
+            cursor: pointer;
+        }
+
+        .range-value {
+            font-size: 0.8em;
+            color: #4ecdc4;
+            font-weight: bold;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(78, 205, 196, 0.2);
+            color: #4ecdc4;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* ============ PAGE 2: VIEWER STYLES ============ */
+        .viewer-page {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #16213e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: none;
+            position: relative;
+        }
+
+        .back-button {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #4ecdc4;
+            border-radius: 10px;
+            color: #4ecdc4;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .back-button:hover {
+            background: rgba(78, 205, 196, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .image-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .glow-wrapper {
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            /* Add subtle border to hint at hidden content */
+            border: 1px solid rgba(78, 205, 196, 0.3);
+        }
+
+        .glow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            border-radius: 20px;
+            transition: opacity 0.2s ease;
+            opacity: 0;
+            /* This overlay will brighten the image underneath */
+            mix-blend-mode: screen;
+        }
+
+        .main-image {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 20px;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .image-container:hover .glow-overlay {
+            opacity: 1;
+        }
+
+        .image-container:hover .main-image {
+            transform: scale(1.02);
+        }
+
+        .no-image-message {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .no-image-message h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .custom-cursor {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, 
+                rgba(255, 255, 255, 0.9) 0%, 
+                rgba(255, 255, 0, 0.8) 30%, 
+                rgba(255, 165, 0, 0.6) 60%, 
+                transparent 100%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s ease;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .custom-cursor::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: radial-gradient(circle, 
+                rgba(255, 255, 255, 1) 0%, 
+                rgba(255, 255, 255, 0.8) 70%, 
+                transparent 100%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(78, 205, 196, 0.3);
+            border-radius: 50%;
+            animation: float 6s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
+        }
+
+        /* Instructions overlay */
+        .instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9em;
+            z-index: 100;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .editor-section {
+                flex-direction: column;
+            }
+            
+            .tools-panel {
+                min-width: 100%;
+            }
+            
+            .controls-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 15px;
+            }
+            
+            .glow-controls {
+                padding: 20px;
+                margin: 20px auto;
+            }
+            
+            .back-button {
+                top: 20px;
+                left: 20px;
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .controls-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            
+            .control-group label {
+                font-size: 0.8em;
+            }
+            
+            .color-input {
+                width: 40px;
+                height: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- PAGE 1: Background Removal Editor -->
+    <div class="page active" id="editorPage">
+        <div class="editor-page">
+            <div class="editor-container">
+                <h1 class="editor-title">🔦 Background Removal + Flashlight Explorer</h1>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-text">📁 Click to upload your image</div>
+                    <div class="upload-hint">or drag and drop it here</div>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+
+                <div class="editor-section hidden" id="editorSection">
+                    <div class="canvas-container">
+                        <canvas id="editorCanvas"></canvas>
+                        <div class="status" id="status">Image loaded! Use the tools to remove background.</div>
+                    </div>
+                    
+                    <div class="tools-panel">
+                        <div class="tool-section">
+                            <h3>🎯 Background Removal</h3>
+                            <button class="tool-button" id="magicWandBtn">Magic Wand</button>
+                            <button class="tool-button" id="eraserBtn">Manual Eraser</button>
+                            <button class="tool-button" id="edgeDetectBtn">Smart Edge</button>
+                        </div>
+
+                        <div class="tool-section">
+                            <h3>⚙️ Tool Settings</h3>
+                            <div class="slider-container">
+                                <label>Tolerance</label>
+                                <input type="range" id="tolerance" min="1" max="100" value="20">
+                            </div>
+                            <div class="slider-container">
+                                <label>Brush Size</label>
+                                <input type="range" id="brushSize" min="5" max="50" value="20">
+                            </div>
+                        </div>
+
+                        <div class="tool-section">
+                            <h3>🔄 Actions</h3>
+                            <button class="tool-button" id="undoBtn">Undo</button>
+                            <button class="tool-button" id="clearBtn">Reset</button>
+                            <button class="tool-button" id="autoRemoveBtn">Auto Remove</button>
+                        </div>
+
+                        <div class="tool-section">
+                            <h3>💾 Export</h3>
+                            <button class="download-btn" id="downloadBtn">Download PNG</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glow-controls hidden" id="glowControls">
+                    <h2 style="text-align: center; margin-bottom: 20px; color: #4ecdc4;">🔦 Customize Flashlight Effect</h2>
+                    <div class="controls-grid">
+                        <div class="control-group">
+                            <label for="glowColor1">Beam Core</label>
+                            <input type="color" id="glowColor1" class="color-input" value="#ffffff">
+                        </div>
+                        <div class="control-group">
+                            <label for="glowColor2">Beam Mid</label>
+                            <input type="color" id="glowColor2" class="color-input" value="#ffff99">
+                        </div>
+                        <div class="control-group">
+                            <label for="glowColor3">Beam Edge</label>
+                            <input type="color" id="glowColor3" class="color-input" value="#ffcc66">
+                        </div>
+                        <div class="control-group">
+                            <label for="invisibleColor">Dark Background</label>
+                            <input type="color" id="invisibleColor" class="color-input" value="#000000">
+                        </div>
+                        <div class="control-group">
+                            <label for="visibleColor">Highlight Tint</label>
+                            <input type="color" id="visibleColor" class="color-input" value="#ffffff">
+                        </div>
+                        <div class="control-group">
+                            <label for="glowIntensity">Beam Power</label>
+                            <input type="range" id="glowIntensity" class="range-input" min="0.1" max="1" step="0.1" value="0.8">
+                            <span class="range-value" id="intensityValue">0.8</span>
+                        </div>
+                        <div class="control-group">
+                            <label for="glowRadius">Beam Size</label>
+                            <input type="range" id="glowRadius" class="range-input" min="30" max="200" value="120">
+                            <span class="range-value" id="radiusValue">120px</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="preview-btn hidden" id="previewBtn">🔦 Flashlight Explorer Mode ✨</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: Clean Glow Viewer -->
+    <div class="page" id="viewerPage">
+        <div class="viewer-page">
+            <div class="particles" id="particles"></div>
+            <div class="custom-cursor" id="customCursor"></div>
+            
+            <button class="back-button" id="backButton">← Back to Editor</button>
+            
+            <div class="image-container" id="imageContainer">
+                <div class="no-image-message" id="noImageMessage">
+                    <h1>🔦 Flashlight Explorer</h1>
+                    <p>Edit your image in the studio first, then use your flashlight beam to explore it in complete darkness!</p>
+                </div>
+                
+                <div class="glow-wrapper hidden" id="glowWrapper">
+                    <div class="ripple-container" id="rippleContainer">
+                        <img class="main-image" id="mainImage" alt="Glowing image">
+                        <div class="hidden-overlay" id="hiddenOverlay"></div>
+                    </div>
+                    <div class="glow-overlay" id="glowOverlay"></div>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <p>Use your flashlight beam to explore the hidden image • Beam follows your movement direction • Press R for random colors • Press +/- for size • Press F for fullscreen</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let canvas, ctx, originalImageData, currentImageData, undoStack = [];
+        let currentTool = 'magicWand';
+        let isDrawing = false;
+        let processedImageData = null;
+        
+        let glowSettings = {
+            color1: '#ffffff',      // Flashlight core - bright white
+            color2: '#ffff99',      // Flashlight mid - warm white  
+            color3: '#ffcc66',      // Flashlight edge - warm yellow
+            invisibleColor: '#000000',  // Pure black for darkness
+            visibleColor: '#ffffff',    // White highlight
+            intensity: 0.8,         // Higher for realistic flashlight
+            radius: 120
+        };
+
+        // DOM elements
+        const editorPage = document.getElementById('editorPage');
+        const viewerPage = document.getElementById('viewerPage');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const editorSection = document.getElementById('editorSection');
+        const glowControls = document.getElementById('glowControls');
+        const previewBtn = document.getElementById('previewBtn');
+        const backButton = document.getElementById('backButton');
+        const status = document.getElementById('status');
+        const noImageMessage = document.getElementById('noImageMessage');
+        const glowWrapper = document.getElementById('glowWrapper');
+        const mainImage = document.getElementById('mainImage');
+        const glowOverlay = document.getElementById('glowOverlay');
+        const hiddenOverlay = document.getElementById('hiddenOverlay');
+        const rippleContainer = document.getElementById('rippleContainer');
+        const imageContainer = document.getElementById('imageContainer');
+        const customCursor = document.getElementById('customCursor');
+
+        // Initialize
+        function init() {
+            canvas = document.getElementById('editorCanvas');
+            ctx = canvas.getContext('2d');
+            setupEventListeners();
+            createParticles();
+            initializeGlowControls();
+        }
+
+        function setupEventListeners() {
+            // Page navigation
+            previewBtn.addEventListener('click', () => switchToViewer());
+            backButton.addEventListener('click', () => switchToEditor());
+
+            // Upload handlers
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Tool buttons
+            document.getElementById('magicWandBtn').addEventListener('click', () => setTool('magicWand'));
+            document.getElementById('eraserBtn').addEventListener('click', () => setTool('eraser'));
+            document.getElementById('edgeDetectBtn').addEventListener('click', () => setTool('edgeDetect'));
+            document.getElementById('autoRemoveBtn').addEventListener('click', autoRemoveBackground);
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('clearBtn').addEventListener('click', reset);
+            document.getElementById('downloadBtn').addEventListener('click', downloadImage);
+
+            // Canvas interaction
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('click', handleCanvasClick);
+
+            // Glow controls
+            ['glowColor1', 'glowColor2', 'glowColor3', 'invisibleColor', 'visibleColor', 'glowIntensity', 'glowRadius'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateGlowSettings);
+            });
+
+            // Keyboard shortcuts (for viewer page)
+            document.addEventListener('keydown', handleKeyPress);
+        }
+
+        // Page switching
+        function switchToViewer() {
+            if (!canvas || !canvas.width) {
+                alert('Please upload and edit an image first!');
+                return;
+            }
+            
+            processedImageData = canvas.toDataURL();
+            editorPage.classList.remove('active');
+            viewerPage.classList.add('active');
+            
+            setupViewerPage();
+        }
+
+        function switchToEditor() {
+            viewerPage.classList.remove('active');
+            editorPage.classList.add('active');
+        }
+
+        function setupViewerPage() {
+            if (processedImageData) {
+                mainImage.src = processedImageData;
+                mainImage.onload = () => {
+                    noImageMessage.classList.add('hidden');
+                    glowWrapper.classList.remove('hidden');
+                    setupGlowEffect();
+                    setupCustomCursor();
+                };
+            }
+        }
+
+        // Editor functions (from previous version)
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave() {
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        }
+
+        function handleFileSelect(e) {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => loadImage(e.target.result);
+            reader.readAsDataURL(file);
+        }
+
+        function loadImage(src) {
+            const img = new Image();
+            img.onload = () => {
+                const maxSize = 500;
+                let { width, height } = img;
+                
+                if (width > maxSize || height > maxSize) {
+                    const ratio = Math.min(maxSize / width, maxSize / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                originalImageData = ctx.getImageData(0, 0, width, height);
+                currentImageData = ctx.getImageData(0, 0, width, height);
+                
+                editorSection.classList.remove('hidden');
+                glowControls.classList.remove('hidden');
+                previewBtn.classList.remove('hidden');
+                status.textContent = 'Image loaded! Remove the background, customize your flashlight, then explore!';
+            };
+            img.src = src;
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tool + 'Btn').classList.add('active');
+            
+            canvas.style.cursor = tool === 'eraser' ? 'crosshair' : 'pointer';
+        }
+
+        function saveState() {
+            undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            if (undoStack.length > 10) undoStack.shift();
+        }
+
+        function startDrawing(e) {
+            if (currentTool === 'eraser') {
+                isDrawing = true;
+                saveState();
+            }
+        }
+
+        function draw(e) {
+            if (!isDrawing || currentTool !== 'eraser') return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const brushSize = document.getElementById('brushSize').value;
+            
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath();
+            ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function handleCanvasClick(e) {
+            if (currentTool === 'magicWand') {
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.floor(e.clientX - rect.left);
+                const y = Math.floor(e.clientY - rect.top);
+                magicWandRemoval(x, y);
+            } else if (currentTool === 'edgeDetect') {
+                edgeDetection();
+            }
+        }
+
+        function magicWandRemoval(startX, startY) {
+            saveState();
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const tolerance = document.getElementById('tolerance').value;
+            
+            const targetPixel = getPixel(data, startX, startY, canvas.width);
+            const visited = new Set();
+            const stack = [[startX, startY]];
+            
+            while (stack.length > 0) {
+                const [x, y] = stack.pop();
+                const key = `${x},${y}`;
+                
+                if (visited.has(key) || x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) continue;
+                visited.add(key);
+                
+                const currentPixel = getPixel(data, x, y, canvas.width);
+                if (colorDistance(targetPixel, currentPixel) <= tolerance) {
+                    setPixelAlpha(data, x, y, canvas.width, 0);
+                    
+                    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            status.textContent = 'Background removed with magic wand!';
+        }
+
+        function autoRemoveBackground() {
+            saveState();
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            const corners = [
+                getPixel(data, 0, 0, canvas.width),
+                getPixel(data, canvas.width - 1, 0, canvas.width),
+                getPixel(data, 0, canvas.height - 1, canvas.width),
+                getPixel(data, canvas.width - 1, canvas.height - 1, canvas.width)
+            ];
+            
+            const tolerance = 30;
+            
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const pixel = getPixel(data, x, y, canvas.width);
+                    
+                    for (const corner of corners) {
+                        if (colorDistance(pixel, corner) <= tolerance) {
+                            setPixelAlpha(data, x, y, canvas.width, 0);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            status.textContent = 'Auto background removal complete!';
+        }
+
+        function edgeDetection() {
+            saveState();
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const newData = new Uint8ClampedArray(data);
+            
+            for (let y = 1; y < canvas.height - 1; y++) {
+                for (let x = 1; x < canvas.width - 1; x++) {
+                    const center = getPixel(data, x, y, canvas.width);
+                    const neighbors = [
+                        getPixel(data, x - 1, y, canvas.width),
+                        getPixel(data, x + 1, y, canvas.width),
+                        getPixel(data, x, y - 1, canvas.width),
+                        getPixel(data, x, y + 1, canvas.width)
+                    ];
+                    
+                    let isEdge = false;
+                    for (const neighbor of neighbors) {
+                        if (colorDistance(center, neighbor) > 50) {
+                            isEdge = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!isEdge) {
+                        const idx = (y * canvas.width + x) * 4;
+                        newData[idx + 3] = 0;
+                    }
+                }
+            }
+            
+            const newImageData = new ImageData(newData, canvas.width, canvas.height);
+            ctx.putImageData(newImageData, 0, 0);
+            status.textContent = 'Edge detection background removal complete!';
+        }
+
+        function getPixel(data, x, y, width) {
+            const idx = (y * width + x) * 4;
+            return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+        }
+
+        function setPixelAlpha(data, x, y, width, alpha) {
+            const idx = (y * width + x) * 4;
+            data[idx + 3] = alpha;
+        }
+
+        function colorDistance(pixel1, pixel2) {
+            const [r1, g1, b1] = pixel1;
+            const [r2, g2, b2] = pixel2;
+            return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+        }
+
+        function undo() {
+            if (undoStack.length > 0) {
+                const previousState = undoStack.pop();
+                ctx.putImageData(previousState, 0, 0);
+                status.textContent = 'Undone!';
+            }
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctx.putImageData(originalImageData, 0, 0);
+                undoStack = [];
+                status.textContent = 'Reset to original image.';
+            }
+        }
+
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'background-removed.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            status.textContent = 'Image downloaded!';
+        }
+
+        function updateGlowSettings() {
+            glowSettings.color1 = document.getElementById('glowColor1').value;
+            glowSettings.color2 = document.getElementById('glowColor2').value;
+            glowSettings.color3 = document.getElementById('glowColor3').value;
+            glowSettings.invisibleColor = document.getElementById('invisibleColor').value;
+            glowSettings.visibleColor = document.getElementById('visibleColor').value;
+            glowSettings.intensity = parseFloat(document.getElementById('glowIntensity').value);
+            glowSettings.radius = parseInt(document.getElementById('glowRadius').value);
+            
+            // Update display values
+            document.getElementById('intensityValue').textContent = glowSettings.intensity;
+            document.getElementById('radiusValue').textContent = glowSettings.radius + 'px';
+            
+            // Update color overlays if on viewer page
+            if (hiddenOverlay) {
+                updateColorOverlays();
+            }
+        }
+
+        function initializeGlowControls() {
+            // Set initial display values
+            document.getElementById('intensityValue').textContent = glowSettings.intensity;
+            document.getElementById('radiusValue').textContent = glowSettings.radius + 'px';
+            
+            // Set initial color values
+            document.getElementById('glowColor1').value = glowSettings.color1;
+            document.getElementById('glowColor2').value = glowSettings.color2;
+            document.getElementById('glowColor3').value = glowSettings.color3;
+            document.getElementById('invisibleColor').value = glowSettings.invisibleColor;
+            document.getElementById('visibleColor').value = glowSettings.visibleColor;
+            document.getElementById('glowIntensity').value = glowSettings.intensity;
+            document.getElementById('glowRadius').value = glowSettings.radius;
+        }
+
+        // Viewer functions
+        function setupGlowEffect() {
+            let rippleAnimation;
+            let lastMouseX = 0;
+            let lastMouseY = 0;
+            let beamAngle = 0;
+            
+            // Apply initial hidden color overlay
+            updateColorOverlays();
+            
+            imageContainer.addEventListener('mousemove', (e) => {
+                const rect = glowWrapper.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Calculate beam direction based on mouse movement
+                const deltaX = x - lastMouseX;
+                const deltaY = y - lastMouseY;
+                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                    beamAngle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+                    lastMouseX = x;
+                    lastMouseY = y;
+                }
+                
+                // Calculate relative positions for effects
+                const relativeX = (x / rect.width) * 100;
+                const relativeY = (y / rect.height) * 100;
+                
+                // Create flashlight beam mask - cone shaped extending from cursor
+                const beamLength = glowSettings.radius * 2;
+                const beamWidth = glowSettings.radius * 1.2;
+                
+                // Calculate beam end points
+                const beamEndX = x + Math.cos(beamAngle * Math.PI / 180) * beamLength;
+                const beamEndY = y + Math.sin(beamAngle * Math.PI / 180) * beamLength;
+                const beamEndRelativeX = (beamEndX / rect.width) * 100;
+                const beamEndRelativeY = (beamEndY / rect.height) * 100;
+                
+                // Create flashlight beam mask using elliptical gradient
+                const mask = `
+                    radial-gradient(
+                        ellipse ${beamWidth}px ${beamLength}px at ${relativeX}% ${relativeY}%, 
+                        white 0%, 
+                        white 40%, 
+                        rgba(255,255,255,0.7) 70%, 
+                        transparent 100%
+                    )`;
+                
+                // Apply mask to image - creates the flashlight beam reveal
+                mainImage.style.mask = mask;
+                mainImage.style.webkitMask = mask;
+                mainImage.style.maskComposite = 'intersect';
+                
+                // Create flashlight beam glow effect
+                const revealIntensity = glowSettings.intensity;
+                const beamGlow = `
+                    radial-gradient(
+                        ellipse ${beamWidth * 1.5}px ${beamLength * 1.2}px at ${x}px ${y}px, 
+                        ${hexToRgba('#ffffff', 0.3 * revealIntensity)} 0%,
+                        ${hexToRgba(glowSettings.color1, 0.4 * revealIntensity)} 15%,
+                        ${hexToRgba(glowSettings.color2, 0.3 * revealIntensity)} 35%,
+                        ${hexToRgba(glowSettings.color3, 0.2 * revealIntensity)} 55%,
+                        ${hexToRgba(glowSettings.visibleColor, 0.1 * revealIntensity)} 75%,
+                        transparent 100%
+                    )`;
+                
+                glowOverlay.style.background = beamGlow;
+                
+                // Flashlight flickering effect
+                const flicker = Math.sin(Date.now() * 0.01) * 0.05 + 0.95;
+                const pulse = Math.sin(Date.now() * 0.003) * 0.1 + 0.9;
+                glowOverlay.style.opacity = pulse * flicker;
+                
+                // Enhanced ripple effect on image
+                rippleContainer.style.setProperty('--ripple-x', `${relativeX}%`);
+                rippleContainer.style.setProperty('--ripple-y', `${relativeY}%`);
+                
+                // Dynamic ripple intensity
+                clearTimeout(rippleAnimation);
+                
+                // Create subtle image distortion with flashlight sway
+                const distortionX = (relativeX - 50) * 0.001;
+                const distortionY = (relativeY - 50) * 0.001;
+                const sway = Math.sin(Date.now() * 0.004) * 1;
+                
+                mainImage.style.transform = `
+                    scale(1.01) 
+                    perspective(1000px) 
+                    rotateX(${distortionY + sway * 0.3}deg) 
+                    rotateY(${distortionX + sway * 0.2}deg)
+                    translateZ(${Math.sin(Date.now() * 0.003) * 2}px)
+                `;
+                
+                // Enhanced image quality for revealed area with flashlight characteristics
+                const brightness = 1.2 + (Math.sin(Date.now() * 0.01) * 0.1); // Slight brightness flicker
+                mainImage.style.filter = `brightness(${brightness}) contrast(1.3) saturate(1.2) drop-shadow(0 0 10px rgba(255,255,255,0.3))`;
+                
+                // Reset animation timer
+                rippleAnimation = setTimeout(() => {
+                    mainImage.style.transform = 'scale(1.01)';
+                }, 100);
+            });
+            
+            imageContainer.addEventListener('mouseleave', () => {
+                // Hide image completely by resetting mask
+                mainImage.style.mask = 'radial-gradient(circle 0px at 50% 50%, white 0%, transparent 0%)';
+                mainImage.style.webkitMask = 'radial-gradient(circle 0px at 50% 50%, white 0%, transparent 0%)';
+                
+                // Reset all effects
+                glowOverlay.style.background = 'transparent';
+                glowOverlay.style.opacity = '0';
+                mainImage.style.transform = 'scale(1)';
+                mainImage.style.filter = 'none';
+                rippleContainer.style.setProperty('--ripple-x', '50%');
+                rippleContainer.style.setProperty('--ripple-y', '50%');
+                
+                clearTimeout(rippleAnimation);
+            });
+        }
+
+        function updateColorOverlays() {
+            // Update hidden color overlay (now just for background effect)
+            hiddenOverlay.style.backgroundColor = glowSettings.invisibleColor;
+        }
+
+        function setupCustomCursor() {
+            document.addEventListener('mousemove', (e) => {
+                customCursor.style.left = (e.clientX - 15) + 'px';
+                customCursor.style.top = (e.clientY - 15) + 'px';
+                
+                // Add subtle glow pulsing to the cursor
+                const pulse = Math.sin(Date.now() * 0.005) * 0.2 + 0.8;
+                customCursor.style.opacity = pulse;
+            });
+        }
+
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const numberOfParticles = 30;
+            
+            for (let i = 0; i < numberOfParticles; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 3 + 4) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        function handleKeyPress(e) {
+            if (viewerPage.classList.contains('active')) {
+                switch(e.key.toLowerCase()) {
+                    case 'r':
+                        glowSettings.color1 = getRandomColor();
+                        glowSettings.color2 = getRandomColor();
+                        glowSettings.color3 = getRandomColor();
+                        break;
+                    case '=':
+                    case '+':
+                        glowSettings.radius = Math.min(glowSettings.radius + 10, 300);
+                        break;
+                    case '-':
+                        glowSettings.radius = Math.max(glowSettings.radius - 10, 30);
+                        break;
+                    case 'f':
+                        toggleFullscreen();
+                        break;
+                    case 'escape':
+                        switchToEditor();
+                        break;
+                }
+            }
+        }
+
+        function getRandomColor() {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#a8e6cf', '#ffd93d', '#ff8a95', '#c3aed6', '#66d9ef'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Initialize the app
+        init();
+
+        // Auto-hide cursor after inactivity for immersive flashlight experience
+        let cursorTimeout;
+        document.addEventListener('mousemove', () => {
+            document.body.style.cursor = 'none';
+            customCursor.style.opacity = '1';
+            
+            clearTimeout(cursorTimeout);
+            cursorTimeout = setTimeout(() => {
+                customCursor.style.opacity = '0';
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
